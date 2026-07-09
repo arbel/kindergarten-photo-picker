@@ -1,0 +1,19 @@
+run.bat
+  s_b0c487bd7aa654::t_1ae1cb1bb893c6 2,5-33,36,38,47-48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "6d59ddcf62d117b825c7a982eab71a97b4aa4e79",
+  "prompts": {},
+  "sessions": {
+    "s_b0c487bd7aa654": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "87074278-4440-49e3-8f25-1dc939cab036",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Idan Arbel <idan.arbel@codefresh.io>"
+    }
+  }
+}
