@@ -1,0 +1,19 @@
+requirements.txt
+  s_b0c487bd7aa654::t_2eee89bfd68068 1-3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "2385adc9ebe3fae43d1ddf292e4f1ac0c3268762",
+  "prompts": {},
+  "sessions": {
+    "s_b0c487bd7aa654": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "87074278-4440-49e3-8f25-1dc939cab036",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Idan Arbel <idan.arbel@codefresh.io>"
+    }
+  }
+}
