@@ -1,0 +1,19 @@
+src/db.py
+  s_b0c487bd7aa654::t_91bdc4651e5ee6 516-522
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "ba78702a124dc951b8efee61f19d6665809a090e",
+  "prompts": {},
+  "sessions": {
+    "s_b0c487bd7aa654": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "87074278-4440-49e3-8f25-1dc939cab036",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Idan Arbel <idan.arbel@codefresh.io>"
+    }
+  }
+}
