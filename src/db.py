@@ -513,7 +513,13 @@ class ProjectDB:
                 "))"
             )
         if hide_reviewed:
-            clauses.append("NOT (skipped=1 OR event_source='manual')")
+            # COALESCE guards against SQL's three-valued logic: for untouched
+            # photos event_source IS NULL, and `0 OR NULL` evaluates to NULL —
+            # which `WHERE NOT (...)` would then filter *out*, silently hiding
+            # every untouched photo.
+            clauses.append(
+                "NOT (skipped=1 OR COALESCE(event_source, '') = 'manual')"
+            )
         sql = "SELECT path FROM photos"
         if clauses:
             sql += " WHERE " + " AND ".join(clauses)
