@@ -42,6 +42,7 @@ from PySide6.QtCore import Qt, QObject, QThread, Signal
 from PySide6.QtGui import QAction, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
+    QDialog,
     QFileDialog,
     QFrame,
     QHBoxLayout,
@@ -567,7 +568,7 @@ class MainWindow(QMainWindow):
             rows=rows,
             reserved_hotkeys=reserved,
         )
-        if dlg.exec() != dlg.Accepted:
+        if dlg.exec() != QDialog.DialogCode.Accepted:
             return
         self._apply_kid_changes(dlg.result_rows(), dlg.deleted_keys())
         self._refresh_entities()
@@ -597,7 +598,7 @@ class MainWindow(QMainWindow):
             reserved_hotkeys=reserved,
             show_schedule=True,
         )
-        if dlg.exec() != dlg.Accepted:
+        if dlg.exec() != QDialog.DialogCode.Accepted:
             return
         self._apply_event_changes(dlg.result_rows(), dlg.deleted_keys())
         self._refresh_entities()
