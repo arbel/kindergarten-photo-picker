@@ -198,6 +198,9 @@ class MainWindow(QMainWindow):
         self.kids: list[Kid] = []
         self.events: list[Event] = []
         self._dynamic_shortcuts: list[QShortcut] = []
+        self._analysis_dlg: Optional[QProgressDialog] = None
+        self._analysis_thread: Optional[QThread] = None
+        self._analysis_worker: Optional[AnalysisWorker] = None
 
         # Filter state
         self.hide_blurry = False
@@ -269,8 +272,8 @@ class MainWindow(QMainWindow):
         entities_row.addWidget(self.events_panel, 1)
         entities_wrap = QWidget()
         entities_wrap.setLayout(entities_row)
-        entities_wrap.setMinimumHeight(200)
-        entities_wrap.setMaximumHeight(280)
+        entities_wrap.setMinimumHeight(140)
+        entities_wrap.setMaximumHeight(360)
         root.addWidget(entities_wrap)
 
         self.setCentralWidget(central)
@@ -668,27 +671,41 @@ class MainWindow(QMainWindow):
         worker = AnalysisWorker(self.folder)
         worker.moveToThread(thread)
 
-        worker.progress.connect(lambda d, t: (dlg.setMaximum(max(t, 1)), dlg.setValue(d)))
-        worker.finished.connect(
-            lambda a, g: self._on_analysis_finished(a, g, dlg, thread)
-        )
-        worker.failed.connect(lambda msg: self._on_analysis_failed(msg, dlg, thread))
+        # Store handles as attrs so the signal handlers below (bound methods
+        # on MainWindow — which lives on the main thread) can reach them
+        # without needing a receiver-less lambda. A lambda without a receiver
+        # is invoked on the emitter (worker) thread, and touching a QWidget
+        # from a non-main thread hard-crashes macOS.
+        self._analysis_dlg = dlg
+        self._analysis_thread = thread
+        self._analysis_worker = worker
+
+        worker.progress.connect(self._on_analysis_progress)
+        worker.finished.connect(self._on_analysis_finished)
+        worker.failed.connect(self._on_analysis_failed)
         dlg.canceled.connect(worker.cancel)
         thread.started.connect(worker.run)
         thread.finished.connect(worker.deleteLater)
         thread.finished.connect(thread.deleteLater)
 
-        self._analysis_thread = thread
-        self._analysis_worker = worker
         thread.start()
         dlg.exec()
 
-    def _on_analysis_finished(
-        self, analyzed: int, groups: int, dlg: QProgressDialog, thread: QThread
-    ) -> None:
-        dlg.setValue(dlg.maximum())
-        dlg.close()
-        thread.quit()
+    def _on_analysis_progress(self, done: int, total: int) -> None:
+        if self._analysis_dlg is None:
+            return
+        self._analysis_dlg.setMaximum(max(total, 1))
+        self._analysis_dlg.setValue(done)
+
+    def _on_analysis_finished(self, analyzed: int, groups: int) -> None:
+        dlg = self._analysis_dlg
+        thread = self._analysis_thread
+        if dlg is not None:
+            dlg.setValue(dlg.maximum())
+            dlg.close()
+        if thread is not None:
+            thread.quit()
+        self._analysis_dlg = None
         QMessageBox.information(
             self,
             "Analyze complete",
@@ -698,11 +715,14 @@ class MainWindow(QMainWindow):
         self._refresh_view_paths(preserve_current=True)
         self._render_all()
 
-    def _on_analysis_failed(
-        self, msg: str, dlg: QProgressDialog, thread: QThread
-    ) -> None:
-        dlg.close()
-        thread.quit()
+    def _on_analysis_failed(self, msg: str) -> None:
+        dlg = self._analysis_dlg
+        thread = self._analysis_thread
+        if dlg is not None:
+            dlg.close()
+        if thread is not None:
+            thread.quit()
+        self._analysis_dlg = None
         QMessageBox.warning(self, "Analyze failed", msg)
 
     def _skip_blurry_action(self) -> None:

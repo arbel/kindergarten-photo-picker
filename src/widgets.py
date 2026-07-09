@@ -9,10 +9,12 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QImageReader, QPixmap
 from PySide6.QtWidgets import (
     QFrame,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -64,10 +66,11 @@ class PhotoView(QLabel):
 
 
 class EntityButton(QPushButton):
-    """A big button representing one kid or one event.
+    """Compact button representing one kid or one event.
 
-    Shows: [hotkey]  name  · N photos
-    Highlights when the entity is active on the current photo.
+    Shows: [hotkey]  name  ·  N   — single line, small, so all bindings fit
+    on-screen as a live hotkey cheatsheet. Highlights when the entity is
+    active on the current photo.
     """
 
     def __init__(self, entity: Entity, on_activate: Callable[[Entity], None]) -> None:
@@ -76,7 +79,9 @@ class EntityButton(QPushButton):
         self._on_activate = on_activate
         self._count = 0
         self._active = False
-        self.setMinimumHeight(46)
+        self.setMinimumHeight(30)
+        self.setMaximumHeight(32)
+        self.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
         self.setCursor(Qt.PointingHandCursor)
         self.clicked.connect(lambda: self._on_activate(self.entity))
         self._refresh()
@@ -91,26 +96,30 @@ class EntityButton(QPushButton):
             self._refresh()
 
     def _refresh(self) -> None:
-        hk = f"[{self.entity.hotkey}]" if self.entity.hotkey else "[ ]"
-        self.setText(f"  {hk}  {self.entity.name}   ·   {self._count} photos")
+        hk = f"[{self.entity.hotkey}]" if self.entity.hotkey else "[·]"
+        self.setText(f"{hk}  {self.entity.name}  ·  {self._count}")
         if self._active:
             self.setStyleSheet(
-                "QPushButton{background:#2c7be5;color:white;border:2px solid #1858b0;"
-                "border-radius:6px;text-align:left;font-size:14px;font-weight:600;}"
+                "QPushButton{background:#2c7be5;color:white;border:1px solid #1858b0;"
+                "border-radius:5px;text-align:left;font-size:12px;padding:2px 8px;"
+                "font-weight:600;}"
             )
         else:
             self.setStyleSheet(
-                "QPushButton{background:#2a2a2a;color:#ddd;border:2px solid #444;"
-                "border-radius:6px;text-align:left;font-size:14px;}"
-                "QPushButton:hover{background:#333;}"
+                "QPushButton{background:#242424;color:#ddd;border:1px solid #3a3a3a;"
+                "border-radius:5px;text-align:left;font-size:12px;padding:2px 8px;}"
+                "QPushButton:hover{background:#2f2f2f;border-color:#555;}"
             )
 
 
-class EntityPanel(QFrame):
-    """Vertical panel with a title and a scrollable list of EntityButtons.
+DEFAULT_COLUMNS = 3
 
-    Used for both the Kids and Events lists. The parent (MainWindow) rebuilds
-    the panel whenever the underlying entity list changes.
+
+class EntityPanel(QFrame):
+    """Panel with a title and a grid of compact EntityButtons.
+
+    Multi-column grid so all kid or event hotkeys are visible at a glance —
+    the panel doubles as a live hotkey cheatsheet.
     """
 
     def __init__(
@@ -118,24 +127,25 @@ class EntityPanel(QFrame):
         title: str,
         on_activate: Callable[[Entity], None],
         on_manage: Callable[[], None],
+        columns: int = DEFAULT_COLUMNS,
     ) -> None:
         super().__init__()
         self.setFrameShape(QFrame.NoFrame)
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
-        outer.setSpacing(4)
+        outer.setSpacing(3)
 
         header = QHBoxLayout()
         header.setContentsMargins(0, 0, 0, 0)
         self._title = QLabel(title)
         self._title.setStyleSheet(
-            "color:#ddd;font-size:12px;font-weight:700;letter-spacing:1px;padding:4px 6px;"
+            "color:#ddd;font-size:11px;font-weight:700;letter-spacing:1px;padding:2px 4px;"
         )
         manage_btn = QPushButton("Manage…")
         manage_btn.setCursor(Qt.PointingHandCursor)
         manage_btn.setStyleSheet(
             "QPushButton{background:transparent;color:#8bc;border:none;"
-            "font-size:12px;padding:4px 6px;} QPushButton:hover{color:#fff;}"
+            "font-size:11px;padding:2px 4px;} QPushButton:hover{color:#fff;}"
         )
         manage_btn.clicked.connect(on_manage)
         header.addWidget(self._title)
@@ -143,41 +153,47 @@ class EntityPanel(QFrame):
         header.addWidget(manage_btn)
         outer.addLayout(header)
 
+        # Grid inside a scroll area (scroll only kicks in for >~20 entities).
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
         self._scroll.setFrameShape(QFrame.NoFrame)
+        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self._content = QWidget()
-        self._content_layout = QVBoxLayout(self._content)
-        self._content_layout.setContentsMargins(0, 0, 0, 0)
-        self._content_layout.setSpacing(4)
-        self._content_layout.addStretch(1)  # keep buttons top-aligned
+        self._grid = QGridLayout(self._content)
+        self._grid.setContentsMargins(0, 0, 0, 0)
+        self._grid.setHorizontalSpacing(4)
+        self._grid.setVerticalSpacing(3)
         self._scroll.setWidget(self._content)
         outer.addWidget(self._scroll, 1)
 
+        self._columns = columns
         self._on_activate = on_activate
-        self._buttons: dict[int, EntityButton] = {}  # keyed by bit (kids) / id (events)
+        self._buttons: dict[int, EntityButton] = {}
         self._empty_hint: Optional[QLabel] = None
 
     def set_entities(self, entities: list[Entity]) -> None:
-        # Remove old buttons
-        for btn in self._buttons.values():
-            btn.setParent(None)
+        # Wipe the grid.
+        while self._grid.count():
+            item = self._grid.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(None)
         self._buttons.clear()
-        if self._empty_hint is not None:
-            self._empty_hint.setParent(None)
-            self._empty_hint = None
+        self._empty_hint = None
 
         if not entities:
             self._empty_hint = QLabel("Nothing here yet — click Manage… to add.")
             self._empty_hint.setStyleSheet("color:#777;padding:12px;font-style:italic;")
-            self._content_layout.insertWidget(0, self._empty_hint)
+            self._grid.addWidget(self._empty_hint, 0, 0, 1, self._columns)
             return
 
-        # Insert new buttons above the stretch spacer.
         for i, entity in enumerate(entities):
             btn = EntityButton(entity, self._on_activate)
             self._buttons[_entity_key(entity)] = btn
-            self._content_layout.insertWidget(i, btn)
+            self._grid.addWidget(btn, i // self._columns, i % self._columns)
+        # Make columns share width evenly.
+        for col in range(self._columns):
+            self._grid.setColumnStretch(col, 1)
 
     def set_counts(self, counts: dict[int, int]) -> None:
         for key, count in counts.items():
