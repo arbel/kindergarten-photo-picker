@@ -39,7 +39,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from PySide6.QtCore import Qt, QObject, QThread, Signal
-from PySide6.QtGui import QAction, QKeySequence, QShortcut
+from PySide6.QtGui import QAction, QColor, QKeySequence, QPalette, QShortcut
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
@@ -968,9 +968,40 @@ class MainWindow(QMainWindow):
         super().closeEvent(event)
 
 
+def _apply_dark_palette(app: QApplication) -> None:
+    """Force a consistent dark theme regardless of the host OS's system theme.
+
+    Without this, macOS light-mode users get an unstyled window+panel background
+    that clashes with our explicitly-dark headers/badges and hides the panel
+    title text ('KIDS', 'EVENTS') by rendering light-gray on light-gray."""
+    app.setStyle("Fusion")
+    p = QPalette()
+    p.setColor(QPalette.Window,          QColor(30, 30, 30))
+    p.setColor(QPalette.WindowText,      QColor(220, 220, 220))
+    p.setColor(QPalette.Base,            QColor(20, 20, 20))
+    p.setColor(QPalette.AlternateBase,   QColor(40, 40, 40))
+    p.setColor(QPalette.Text,            QColor(220, 220, 220))
+    p.setColor(QPalette.Button,          QColor(42, 42, 42))
+    p.setColor(QPalette.ButtonText,      QColor(220, 220, 220))
+    p.setColor(QPalette.BrightText,      QColor(255, 80, 80))
+    p.setColor(QPalette.Highlight,       QColor(44, 123, 229))
+    p.setColor(QPalette.HighlightedText, QColor(255, 255, 255))
+    p.setColor(QPalette.ToolTipBase,     QColor(50, 50, 50))
+    p.setColor(QPalette.ToolTipText,     QColor(220, 220, 220))
+    p.setColor(QPalette.PlaceholderText, QColor(120, 120, 120))
+    p.setColor(QPalette.Link,            QColor(120, 180, 240))
+    # Disabled states.
+    dim = QColor(120, 120, 120)
+    p.setColor(QPalette.Disabled, QPalette.WindowText, dim)
+    p.setColor(QPalette.Disabled, QPalette.Text,       dim)
+    p.setColor(QPalette.Disabled, QPalette.ButtonText, dim)
+    app.setPalette(p)
+
+
 def main() -> int:
     app = QApplication(sys.argv)
     app.setApplicationName("Kindergarten Photo Picker")
+    _apply_dark_palette(app)
     win = MainWindow()
     win.show()
     return app.exec()
